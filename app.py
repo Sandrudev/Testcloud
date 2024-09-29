@@ -6,7 +6,7 @@ import telebot
 import streamlit as st
 
 # Settings for your app
-TELEGRAM_BOT_TOKEN = '6857213111:AAGeZKHli7jEE078kPzmcyV6TPdrt-_ZQFA'
+TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'
 CHANNEL_ID = '-1002173127202'  # Your Telegram channel ID
 DATABASE = 'app.db'
 UPLOAD_FOLDER = 'uploads'
