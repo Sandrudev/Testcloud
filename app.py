@@ -5,23 +5,21 @@ import telebot
 import streamlit as st
 
 # Настройки вашего приложения
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
+TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSЗpTfrtLyWsK1GM2JE'  # Ваш токен бота
 CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
 UPLOAD_FOLDER = 'uploads'
+TOKENS_FILE = 'tokens.txt'  # Файл для хранения токенов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Создаем экземпляр бота Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Список для хранения токенов
-tokens_list = []
+# Список для хранения загруженных файлов
+uploaded_files_dict = {}
 
 # Функция для генерации случайных токенов
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-# Список для хранения загруженных файлов
-uploaded_files_dict = {}
 
 # Функция для загрузки файла
 def upload_file(file, user_token):
@@ -44,13 +42,29 @@ def upload_file(file, user_token):
         except telebot.apihelper.ApiException as e:
             st.error(f"Ошибка при отправке файла в Telegram: {e}")
 
+# Функция для сохранения токена в файл
+def save_token(token):
+    with open(TOKENS_FILE, 'a') as f:
+        f.write(token + '\n')
+
+# Функция для загрузки токенов из файла
+def load_tokens():
+    if os.path.exists(TOKENS_FILE):
+        with open(TOKENS_FILE, 'r') as f:
+            return [line.strip() for line in f.readlines()]
+    return []
+
 # Проверка наличия токена в списке токенов
 def check_token(token):
+    tokens_list = load_tokens()
     return token in tokens_list
 
 # Основной интерфейс Streamlit
 def main():
     st.title("Приложение Streamlit с интеграцией Telegram")
+
+    # Загружаем токены из файла
+    tokens_list = load_tokens()
 
     # Раздел для входа
     if 'admin_token' not in st.session_state:
@@ -73,7 +87,7 @@ def main():
                 token = generate_token()
                 # Отправляем сгенерированный токен в канал Telegram и добавляем его в список токенов
                 bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
-                tokens_list.append(token)  # Сохраняем токен в списке
+                save_token(token)  # Сохраняем токен в файл
                 st.session_state['admin_token'] = token
                 st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
             else:
