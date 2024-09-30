@@ -5,7 +5,7 @@ import telebot
 import streamlit as st
 
 # Настройки вашего приложения
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Замените на ваш токен бота
+TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
 CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -39,6 +39,15 @@ def upload_file(file, user_token):
         except telebot.apihelper.ApiException as e:
             st.error(f"Ошибка при отправке файла в Telegram: {e}")
 
+# Проверка наличия токена в последних сообщениях канала
+def check_token_in_channel(token):
+    updates = bot.get_updates()
+    for update in updates:
+        if update.message and update.message.chat.id == CHANNEL_ID:
+            if token in update.message.caption:
+                return True
+    return False
+
 # Основной интерфейс Streamlit
 def main():
     st.title("Приложение Streamlit с интеграцией Telegram")
@@ -49,17 +58,12 @@ def main():
         login_token = st.text_input("Введите ваш токен")
 
         if st.button("Войти"):
-            # Проверяем наличие токена в канале Telegram (проверка по последнему сообщению)
-            try:
-                messages = bot.get_chat_history(CHANNEL_ID, limit=100)  # Получаем последние 100 сообщений
-                if any(login_token in msg.text for msg in messages):
-                    st.session_state['admin_token'] = login_token
-                    st.success("Вход выполнен успешно!")
-                    st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
-                else:
-                    st.error("Неверный токен! Пожалуйста, проверьте и попробуйте снова.")
-            except Exception as e:
-                st.error(f"Ошибка при получении сообщений: {e}")
+            if check_token_in_channel(login_token):
+                st.session_state['admin_token'] = login_token
+                st.success("Вход выполнен успешно!")
+                st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
+            else:
+                st.error("Неверный токен! Пожалуйста, проверьте и попробуйте снова.")
 
         st.subheader("Или зарегистрируйтесь")
         admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
@@ -84,7 +88,7 @@ def main():
             upload_file(uploaded_file, st.session_state['admin_token'])
             st.success("Файл успешно загружен!")
 
-        # Отображаем загруженные файлы
+        # Отображаем загруженные файлы по токену
         if uploaded_files_list:
             st.subheader("Загруженные файлы")
             for file in uploaded_files_list:
