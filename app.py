@@ -4,20 +4,23 @@ import os
 import telebot
 import streamlit as st
 
-# Settings for your app
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'
-CHANNEL_ID = '-1002173127202'  # Your Telegram channel ID
+# Настройки вашего приложения
+TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Замените на ваш токен бота
+CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Create Telegram bot instance
+# Создаем экземпляр бота Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Function to generate random tokens
+# Функция для генерации случайных токенов
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-# Function to upload file
+# Список для хранения загруженных файлов
+uploaded_files_list = []
+
+# Функция для загрузки файла
 def upload_file(file, user_token):
     filename = file.name
     file_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -27,60 +30,68 @@ def upload_file(file, user_token):
 
     file_type = 'image' if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) else 'video'
     
-    # Send file to Telegram channel with token as caption
+    # Отправляем файл в канал Telegram с токеном в качестве подписи
     with open(file_path, 'rb') as f:
         try:
             bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
+            # Добавляем файл в список загруженных
+            uploaded_files_list.append({'name': filename, 'url': file_path, 'type': file_type})
         except telebot.apihelper.ApiException as e:
-            st.error(f"Error sending file to Telegram: {e}")
+            st.error(f"Ошибка при отправке файла в Telegram: {e}")
 
-# Streamlit UI
+# Основной интерфейс Streamlit
 def main():
-    st.title("Streamlit App with Telegram Integration")
+    st.title("Приложение Streamlit с интеграцией Telegram")
 
-    # Login section
+    # Раздел для входа
     if 'admin_token' not in st.session_state:
-        st.subheader("Login")
-        login_token = st.text_input("Enter your token")
+        st.subheader("Вход")
+        login_token = st.text_input("Введите ваш токен")
 
-        if st.button("Login"):
-            # Check if the token exists in the Telegram channel messages
+        if st.button("Войти"):
+            # Проверяем наличие токена в сообщениях канала Telegram
             messages = bot.get_chat_history(CHANNEL_ID)
             if any(login_token in msg.text for msg in messages):
                 st.session_state['admin_token'] = login_token
-                st.success("Login successful!")
-                st.experimental_rerun()  # Reload the app to reflect logged-in state
+                st.success("Вход выполнен успешно!")
+                st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
             else:
-                st.error("Invalid token! Please check and try again.")
+                st.error("Неверный токен! Пожалуйста, проверьте и попробуйте снова.")
 
-        st.subheader("Or Register")
-        admin_password = st.text_input("Enter admin password to register", type="password")
+        st.subheader("Или зарегистрируйтесь")
+        admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
 
-        if st.button("Register"):
+        if st.button("Зарегистрироваться"):
             if admin_password == 'adminmorshen1995':
                 token = generate_token()
-                # Send the generated token to the Telegram channel
-                bot.send_message(chat_id=CHANNEL_ID, text=f"New Token: {token}")
+                # Отправляем сгенерированный токен в канал Telegram
+                bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
                 st.session_state['admin_token'] = token
-                st.success(f"Registration successful! Your token is: {token}")
+                st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
             else:
-                st.error("Incorrect admin password!")
+                st.error("Неверный админский пароль!")
 
-    # After login, show the dashboard
+    # После входа показываем панель управления
     else:
-        st.subheader("Dashboard")
+        st.subheader("Панель управления")
 
-        # Show file upload option
-        uploaded_file = st.file_uploader("Choose a file to upload")
+        # Опция загрузки файла
+        uploaded_file = st.file_uploader("Выберите файл для загрузки")
         if uploaded_file is not None:
             upload_file(uploaded_file, st.session_state['admin_token'])
-            st.success("File uploaded successfully!")
+            st.success("Файл успешно загружен!")
 
-        # Display a message indicating that files can be uploaded under this token.
-        st.info(f"Files uploaded under your token: {st.session_state['admin_token']}")
+        # Отображаем загруженные файлы
+        if uploaded_files_list:
+            st.subheader("Загруженные файлы")
+            for file in uploaded_files_list:
+                if file['type'] == 'image':
+                    st.image(file['url'], caption=file['name'])
+                elif file['type'] == 'video':
+                    st.video(file['url'])
 
-        # Option to log out
-        if st.button("Log Out"):
+        # Опция выхода из системы
+        if st.button("Выйти"):
             del st.session_state['admin_token']
             st.experimental_rerun()
 
