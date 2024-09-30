@@ -1,59 +1,21 @@
 import random
 import string
-import sqlite3
 import os
 import telebot
 import streamlit as st
 
 # Settings for your app
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'
+TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 CHANNEL_ID = '-1002173127202'  # Your Telegram channel ID
-DATABASE = 'app.db'
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Create Telegram bot instance
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Initialize the SQLite3 database
-def init_db():
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tokens (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            token TEXT UNIQUE NOT NULL
-        )
-        ''')
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS files (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            filename TEXT NOT NULL,
-            filetype TEXT NOT NULL,
-            token TEXT NOT NULL,
-            FOREIGN KEY(token) REFERENCES tokens(token)
-        )
-        ''')
-        conn.commit()
-
-init_db()
-
 # Function to generate random tokens
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-# Get files for a specific token from the database
-def get_files_from_folder(token):
-    files = []
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT filename, filetype FROM files WHERE token = ?', (token,))
-        rows = cursor.fetchall()
-        for row in rows:
-            filename, file_type = row
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-            files.append({'name': filename, 'url': file_path, 'type': file_type})
-    return files
 
 # Function to upload file
 def upload_file(file, user_token):
@@ -64,12 +26,8 @@ def upload_file(file, user_token):
         f.write(file.getbuffer())
 
     file_type = 'image' if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) else 'video'
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute('INSERT INTO files (filename, filetype, token) VALUES (?, ?, ?)', 
-                       (filename, file_type, user_token))
-        conn.commit()
-
+    
+    # Send file to Telegram channel with token as caption
     with open(file_path, 'rb') as f:
         try:
             bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
@@ -86,17 +44,14 @@ def main():
         login_token = st.text_input("Enter your token")
 
         if st.button("Login"):
-            with sqlite3.connect(DATABASE) as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT token FROM tokens WHERE token = ?', (login_token,))
-                result = cursor.fetchone()
-
-                if result:
-                    st.session_state['admin_token'] = login_token
-                    st.success("Login successful!")
-                    st.experimental_rerun()  # Reload the app to reflect logged-in state
-                else:
-                    st.error("Invalid token! Please check and try again.")
+            # Check if the token exists in the Telegram channel messages
+            messages = bot.get_chat_history(CHANNEL_ID)
+            if any(login_token in msg.text for msg in messages):
+                st.session_state['admin_token'] = login_token
+                st.success("Login successful!")
+                st.experimental_rerun()  # Reload the app to reflect logged-in state
+            else:
+                st.error("Invalid token! Please check and try again.")
 
         st.subheader("Or Register")
         admin_password = st.text_input("Enter admin password to register", type="password")
@@ -104,10 +59,8 @@ def main():
         if st.button("Register"):
             if admin_password == 'adminmorshen1995':
                 token = generate_token()
-                with sqlite3.connect(DATABASE) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute('INSERT INTO tokens (token) VALUES (?)', (token,))
-                    conn.commit()
+                # Send the generated token to the Telegram channel
+                bot.send_message(chat_id=CHANNEL_ID, text=f"New Token: {token}")
                 st.session_state['admin_token'] = token
                 st.success(f"Registration successful! Your token is: {token}")
             else:
@@ -123,15 +76,8 @@ def main():
             upload_file(uploaded_file, st.session_state['admin_token'])
             st.success("File uploaded successfully!")
 
-        # Fetch and display uploaded files
-        user_files = get_files_from_folder(st.session_state['admin_token'])
-        if user_files:
-            st.subheader("Uploaded Files")
-            for file in user_files:
-                if file['type'] == 'image':
-                    st.image(file['url'], caption=file['name'])
-                elif file['type'] == 'video':
-                    st.video(file['url'])
+        # Display a message indicating that files can be uploaded under this token.
+        st.info(f"Files uploaded under your token: {st.session_state['admin_token']}")
 
         # Option to log out
         if st.button("Log Out"):
