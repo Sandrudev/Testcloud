@@ -13,7 +13,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Создаем экземпляр бота Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Список для хранения токенов (можно заменить на более надежное хранилище)
+# Список для хранения токенов
 tokens_list = []
 
 # Функция для генерации случайных токенов
@@ -21,7 +21,7 @@ def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 # Список для хранения загруженных файлов
-uploaded_files_list = []
+uploaded_files_dict = {}
 
 # Функция для загрузки файла
 def upload_file(file, user_token):
@@ -37,8 +37,10 @@ def upload_file(file, user_token):
     with open(file_path, 'rb') as f:
         try:
             bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
-            # Добавляем файл в список загруженных
-            uploaded_files_list.append({'name': filename, 'url': file_path, 'type': file_type})
+            # Добавляем файл в словарь загруженных по токену
+            if user_token not in uploaded_files_dict:
+                uploaded_files_dict[user_token] = []
+            uploaded_files_dict[user_token].append({'name': filename, 'url': file_path, 'type': file_type})
         except telebot.apihelper.ApiException as e:
             st.error(f"Ошибка при отправке файла в Telegram: {e}")
 
@@ -88,9 +90,10 @@ def main():
             st.success("Файл успешно загружен!")
 
         # Отображаем загруженные файлы по токену
-        if uploaded_files_list:
+        user_token = st.session_state['admin_token']
+        if user_token in uploaded_files_dict:
             st.subheader("Загруженные файлы")
-            for file in uploaded_files_list:
+            for file in uploaded_files_dict[user_token]:
                 if file['type'] == 'image':
                     st.image(file['url'], caption=file['name'])
                 elif file['type'] == 'video':
@@ -99,7 +102,6 @@ def main():
         # Опция выхода из системы
         if st.button("Выйти"):
             del st.session_state['admin_token']
-            uploaded_files_list.clear()  # Очищаем список загруженных файлов при выходе
             st.experimental_rerun()
 
 if __name__ == "__main__":
