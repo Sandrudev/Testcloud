@@ -13,6 +13,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Создаем экземпляр бота Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
+# Список для хранения токенов (можно заменить на более надежное хранилище)
+tokens_list = []
+
 # Функция для генерации случайных токенов
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -39,14 +42,9 @@ def upload_file(file, user_token):
         except telebot.apihelper.ApiException as e:
             st.error(f"Ошибка при отправке файла в Telegram: {e}")
 
-# Проверка наличия токена в последних сообщениях канала
-def check_token_in_channel(token):
-    updates = bot.get_updates()
-    for update in updates:
-        if update.message and update.message.chat.id == CHANNEL_ID:
-            if token in update.message.caption:
-                return True
-    return False
+# Проверка наличия токена в списке токенов
+def check_token(token):
+    return token in tokens_list
 
 # Основной интерфейс Streamlit
 def main():
@@ -58,7 +56,7 @@ def main():
         login_token = st.text_input("Введите ваш токен")
 
         if st.button("Войти"):
-            if check_token_in_channel(login_token):
+            if check_token(login_token):
                 st.session_state['admin_token'] = login_token
                 st.success("Вход выполнен успешно!")
                 st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
@@ -71,8 +69,9 @@ def main():
         if st.button("Зарегистрироваться"):
             if admin_password == 'adminmorshen1995':
                 token = generate_token()
-                # Отправляем сгенерированный токен в канал Telegram
+                # Отправляем сгенерированный токен в канал Telegram и добавляем его в список токенов
                 bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
+                tokens_list.append(token)  # Сохраняем токен в списке
                 st.session_state['admin_token'] = token
                 st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
             else:
