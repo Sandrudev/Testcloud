@@ -49,14 +49,17 @@ def main():
         login_token = st.text_input("Введите ваш токен")
 
         if st.button("Войти"):
-            # Проверяем наличие токена в сообщениях канала Telegram
-            messages = bot.get_chat_history(CHANNEL_ID)
-            if any(login_token in msg.text for msg in messages):
-                st.session_state['admin_token'] = login_token
-                st.success("Вход выполнен успешно!")
-                st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
-            else:
-                st.error("Неверный токен! Пожалуйста, проверьте и попробуйте снова.")
+            # Проверяем наличие токена в канале Telegram (проверка по последнему сообщению)
+            try:
+                messages = bot.get_chat_history(CHANNEL_ID, limit=100)  # Получаем последние 100 сообщений
+                if any(login_token in msg.text for msg in messages):
+                    st.session_state['admin_token'] = login_token
+                    st.success("Вход выполнен успешно!")
+                    st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
+                else:
+                    st.error("Неверный токен! Пожалуйста, проверьте и попробуйте снова.")
+            except Exception as e:
+                st.error(f"Ошибка при получении сообщений: {e}")
 
         st.subheader("Или зарегистрируйтесь")
         admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
@@ -93,6 +96,7 @@ def main():
         # Опция выхода из системы
         if st.button("Выйти"):
             del st.session_state['admin_token']
+            uploaded_files_list.clear()  # Очищаем список загруженных файлов при выходе
             st.experimental_rerun()
 
 if __name__ == "__main__":
