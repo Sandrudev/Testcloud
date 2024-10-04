@@ -1,136 +1,44 @@
-import random
-import string
-import os
-import telebot
 import streamlit as st
-import sqlite3
+import asyncio
+from telethon import TelegramClient
 
-# Настройки вашего приложения
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
-GROUP_ID = '-1002311765715'  # Ваш ID группы Telegram (обновлено с канала на группу)
-DB_FILE = 'tokens_files.db'  # Имя файла базы данных
+# Введите ваши api_id и api_hash
+api_id = '22328650'
+api_hash = '20b45c386598fab8028b1d99b63aeeeb'
 
-# Создание экземпляра бота Telegram
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+client = TelegramClient('session_name', api_id, api_hash)
 
-# Создание подключения к базе данных
-conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-c = conn.cursor()
-
-# Создание таблицы для токенов
-c.execute('''
-    CREATE TABLE IF NOT EXISTS tokens (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        token TEXT UNIQUE
-    )
-''')
-conn.commit()
-
-# Функция для генерации случайных токенов
-def generate_token(length=12):
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-# Функция для отправки файла в группу Telegram
-def upload_file(file, user_token):
-    try:
-        bot.send_document(chat_id=GROUP_ID, document=file, caption=user_token)
-        st.success("Файл успешно загружен!")
-    except telebot.apihelper.ApiTelegramException as e:
-        st.error(f"Ошибка при отправке файла в Telegram: {e}")
-        print(f"Ошибка при отправке файла: {e}")
-
-# Функция для проверки токена в базе данных
-def check_token(token):
-    c.execute('SELECT token FROM tokens WHERE token = ?', (token,))
-    return c.fetchone() is not None
-
-# Функция для сохранения токена в базе данных
-def save_token(token):
-    c.execute('INSERT INTO tokens (token) VALUES (?)', (token,))
-    conn.commit()
-
-# Функция для получения файлов из группы Telegram
-def get_files_by_token(token):
-    updates = bot.get_updates()
-    files = []
+async def main(phone, code, password):
+    await client.start(phone=phone)
     
-    for update in updates:
-        if update.message and update.message.chat.id == int(GROUP_ID):
-            if update.message.caption and token in update.message.caption:
-                if update.message.document:
-                    files.append({
-                        'filename': update.message.document.file_name,
-                        'file_id': update.message.document.file_id,
-                        'file_size': update.message.document.file_size,
-                    })
+    if code:
+        await client.sign_in(phone, code, password=password)
     
-    print(f"Найденные файлы по токену '{token}': {files}")
+    st.success("Успешно авторизован!")
+
+    # Выбор чата для парсинга
+    chat = st.text_input("Введите имя чата или его ID:")
     
-    return files
-
-# Функция для скачивания файла по file_id
-def download_file(file_id):
-    file_info = bot.get_file(file_id)
-    file_path = f"downloads/{file_info.file_path.split('/')[-1]}"
-    downloaded_file = bot.download_file(file_info.file_path)
-
-    os.makedirs('downloads', exist_ok=True)
-    with open(file_path, 'wb') as f:
-        f.write(downloaded_file)
-
-    return file_path
-
-# Основной интерфейс Streamlit
-def main():
-    st.title("Приложение Streamlit с интеграцией Telegram")
-
-    if 'admin_token' in st.session_state:
-        st.subheader("Панель управления")
-
-        uploaded_file = st.file_uploader("Выберите файл для загрузки", type=["png", "jpg", "jpeg", "gif", "mp4"])
-        if uploaded_file is not None:
-            upload_file(uploaded_file, st.session_state['admin_token'])
-
-        files = get_files_by_token(st.session_state['admin_token'])
-        if files:
-            st.subheader("Загруженные файлы")
-            for file in files:
-                if st.button(f"Скачать {file['filename']}"):
-                    file_path = download_file(file['file_id'])
-                    st.success(f"Файл {file['filename']} успешно скачан в {file_path}")
+    if st.button("Запустить парсер"):
+        if chat:
+            messages = []
+            async for message in client.iter_messages(chat):
+                messages.append(f"{message.sender_id}: {message.text}")
+            st.write("\n".join(messages))
         else:
-            st.warning("Нет загруженных файлов для отображения.")
-
-        if st.button("Выйти"):
-            del st.session_state['admin_token']
-            st.experimental_rerun()  # Перезагрузить страницу после выхода
-
-    else:
-        st.subheader("Вход")
-        login_token = st.text_input("Введите ваш токен")
-
-        if st.button("Войти"):
-            if check_token(login_token):
-                st.session_state['admin_token'] = login_token
-                st.success("Вход выполнен успешно!")
-                st.experimental_rerun()  # Перезагрузить страницу после входа
-
-        st.subheader("Или зарегистрируйтесь")
-        admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
-
-        if st.button("Зарегистрироваться"):
-            if admin_password == 'adminmorshen1995':
-                token = generate_token()
-                try:
-                    bot.send_message(chat_id=GROUP_ID, text=f"Новый токен: {token}")
-                    save_token(token)
-                    st.session_state['admin_token'] = token
-                    st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
-                except telebot.apihelper.ApiTelegramException as e:
-                    st.error(f"Ошибка при отправке сообщения в Telegram: {e}")
-                    print(f"Ошибка при отправке сообщения: {e}")
-            else:
-                st.error("Неверный админский пароль!")
+            st.error("Пожалуйста, введите имя чата.")
 
 if __name__ == "__main__":
-    main()
+    if "loop" not in st.session_state:
+        st.session_state.loop = asyncio.new_event_loop()
+    
+    phone = st.text_input("Введите номер телефона:")
+    code = st.text_input("Введите код подтверждения:")
+    password = st.text_input("Введите пароль (если есть):", type="password")
+
+    if st.button("Авторизоваться"):
+        asyncio.set_event_loop(st.session_state.loop)
+        try:
+            st.session_state.loop.run_until_complete(main(phone, code, password))
+        except Exception as e:
+            st.error(f"Произошла ошибка: {e}")
