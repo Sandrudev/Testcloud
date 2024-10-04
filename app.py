@@ -59,10 +59,23 @@ def get_files_by_token(token):
                 if update.message.document:
                     files.append({
                         'filename': update.message.document.file_name,
-                        'filetype': update.message.document.mime_type,
-                        'file_id': update.message.document.file_id
+                        'file_id': update.message.document.file_id,
+                        'file_size': update.message.document.file_size,
                     })
     return files
+
+# Функция для скачивания файла по file_id
+def download_file(file_id):
+    file_info = bot.get_file(file_id)
+    file_path = f"downloads/{file_info.file_path.split('/')[-1]}"
+    downloaded_file = bot.download_file(file_info.file_path)
+
+    # Сохранить файл на сервере (в папку downloads)
+    os.makedirs('downloads', exist_ok=True)
+    with open(file_path, 'wb') as f:
+        f.write(downloaded_file)
+
+    return file_path
 
 # Основной интерфейс Streamlit
 def main():
@@ -84,11 +97,9 @@ def main():
         if files:
             st.subheader("Загруженные файлы")
             for file in files:
-                file_id = file['file_id']
-                if 'image' in file['filetype']:
-                    st.image(bot.get_file(file_id).file_path, caption=file['filename'])
-                elif 'video' in file['filetype']:
-                    st.video(bot.get_file(file_id).file_path)
+                if st.button(f"Скачать {file['filename']}"):
+                    file_path = download_file(file['file_id'])
+                    st.success(f"Файл {file['filename']} успешно скачан в {file_path}")
 
         # Опция выхода из системы
         if st.button("Выйти"):
