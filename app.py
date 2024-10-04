@@ -48,8 +48,8 @@ def upload_file(file, user_token):
 def check_token_in_channel(token):
     updates = bot.get_updates()
     for update in updates:
-        if update.message and update.message.chat.id == CHANNEL_ID:
-            if token in update.message.caption:
+        if update.message and update.message.chat.id == int(CHANNEL_ID):
+            if update.message.caption and token in update.message.caption:
                 return True
     return False
 
