@@ -34,15 +34,18 @@ def upload_file(file, user_token):
     file_type = 'image' if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) else 'video'
     
     # Отправляем файл в канал Telegram с токеном в качестве подписи
-    with open(file_path, 'rb') as f:
-        try:
+    try:
+        with open(file_path, 'rb') as f:
             bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
-            # Добавляем файл в словарь загруженных файлов по токену
-            if user_token not in uploaded_files_dict:
-                uploaded_files_dict[user_token] = []
-            uploaded_files_dict[user_token].append({'name': filename, 'url': file_path, 'type': file_type})
-        except telebot.apihelper.ApiException as e:
-            st.error(f"Ошибка при отправке файла в Telegram: {e}")
+        
+        # Добавляем файл в словарь загруженных файлов по токену
+        if user_token not in uploaded_files_dict:
+            uploaded_files_dict[user_token] = []
+        uploaded_files_dict[user_token].append({'name': filename, 'url': file_path, 'type': file_type})
+        
+    except telebot.apihelper.ApiTelegramException as e:
+        st.error(f"Ошибка при отправке файла в Telegram: {e}")
+        print(f"Ошибка при отправке файла: {e}")  # Выводим подробную ошибку для отладки
 
 # Проверка наличия токена в последних сообщениях канала
 def check_token_in_channel(token):
@@ -76,11 +79,14 @@ def main():
         if st.button("Зарегистрироваться"):
             if admin_password == 'adminmorshen1995':
                 token = generate_token()
-                # Отправляем сгенерированный токен в канал Telegram и добавляем его в список токенов
-                bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
-                tokens_list.append(token)  # Сохраняем токен в списке
-                st.session_state['admin_token'] = token
-                st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
+                try:
+                    bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
+                    tokens_list.append(token)  # Сохраняем токен в списке
+                    st.session_state['admin_token'] = token
+                    st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
+                except telebot.apihelper.ApiTelegramException as e:
+                    st.error(f"Ошибка при отправке сообщения в Telegram: {e}")
+                    print(f"Ошибка при отправке сообщения: {e}")  # Выводим подробную ошибку для отладки
             else:
                 st.error("Неверный админский пароль!")
 
