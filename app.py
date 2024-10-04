@@ -5,7 +5,7 @@ import telebot
 import streamlit as st
 
 # Настройки вашего приложения
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
+TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSЗпTfrtLyWsK1GM2JE'  # Ваш токен бота
 CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -20,7 +20,7 @@ tokens_list = []
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-# Словарь для хранения загруженных файлов по токенам
+# Словарь для хранения загруженных файлов по токенам (сохраняется между сессиями)
 uploaded_files_dict = {}
 
 # Функция для загрузки файла
@@ -106,7 +106,6 @@ def main():
         # Опция выхода из системы
         if st.button("Выйти"):
             del st.session_state['admin_token']
-            uploaded_files_dict.clear()  # Очищаем словарь загруженных файлов при выходе
             st.experimental_rerun()
 
 if __name__ == "__main__":
