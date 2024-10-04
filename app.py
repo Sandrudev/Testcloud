@@ -48,13 +48,17 @@ def upload_file(file, user_token):
         st.error(f"Ошибка при отправке файла в Telegram: {e}")
         print(f"Ошибка при отправке файла: {e}")  # Выводим подробную ошибку для отладки
 
-# Проверка наличия токена в последних сообщениях канала
+# Проверка наличия токена в истории сообщений канала
 def check_token_in_channel(token):
-    updates = bot.get_updates()
-    for update in updates:
-        if update.message and update.message.chat.id == int(CHANNEL_ID):
-            if update.message.caption and token in update.message.caption:
+    try:
+        # Получаем последние 100 сообщений из канала
+        messages = bot.get_chat_history(chat_id=CHANNEL_ID, limit=100)
+        for message in messages:
+            if message.caption and token in message.caption:
                 return True
+    except telebot.apihelper.ApiTelegramException as e:
+        st.error(f"Ошибка при проверке токена: {e}")
+        print(f"Ошибка при проверке токена: {e}")  # Логируем ошибку для отладки
     return False
 
 # Основной интерфейс Streamlit
