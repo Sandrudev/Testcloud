@@ -98,10 +98,7 @@ def main():
                 st.session_state['admin_token'] = login_token
                 st.success("Вход выполнен успешно!")
                 # Перезагружаем приложение для обновления состояния
-                try:
-                    st.experimental_rerun()
-                except Exception as e:
-                    st.error(f"Ошибка при перезагрузке приложения: {e}")
+                st.session_state.clear()  # Очистить сессию и обновить страницу
 
         st.subheader("Или зарегистрируйтесь")
         admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
