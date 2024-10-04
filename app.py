@@ -88,37 +88,9 @@ def get_files_by_token(token):
 def main():
     st.title("Приложение Streamlit с интеграцией Telegram")
 
-    # Раздел для входа
-    if 'admin_token' not in st.session_state:
-        st.subheader("Вход")
-        login_token = st.text_input("Введите ваш токен")
-
-        if st.button("Войти"):
-            if check_token(login_token):
-                st.session_state['admin_token'] = login_token
-                st.success("Вход выполнен успешно!")
-                # Перезагружаем приложение для обновления состояния
-                st.session_state.clear()  # Очистить сессию и обновить страницу
-
-        st.subheader("Или зарегистрируйтесь")
-        admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
-
-        if st.button("Зарегистрироваться"):
-            if admin_password == 'adminmorshen1995':
-                token = generate_token()
-                try:
-                    bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
-                    save_token(token)  # Сохраняем токен в базу данных
-                    st.session_state['admin_token'] = token
-                    st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
-                except telebot.apihelper.ApiTelegramException as e:
-                    st.error(f"Ошибка при отправке сообщения в Telegram: {e}")
-                    print(f"Ошибка при отправке сообщения: {e}")  # Выводим подробную ошибку для отладки
-            else:
-                st.error("Неверный админский пароль!")
-
-    # После входа показываем панель управления
-    else:
+    # Проверка на авторизацию
+    if 'admin_token' in st.session_state:
+        # После входа показываем панель управления
         st.subheader("Панель управления")
 
         # Опция загрузки файла
@@ -140,7 +112,35 @@ def main():
         # Опция выхода из системы
         if st.button("Выйти"):
             del st.session_state['admin_token']
-            st.experimental_rerun()
+            st.experimental_rerun()  # Перезагрузить страницу после выхода
+
+    else:
+        # Раздел для входа
+        st.subheader("Вход")
+        login_token = st.text_input("Введите ваш токен")
+
+        if st.button("Войти"):
+            if check_token(login_token):
+                st.session_state['admin_token'] = login_token
+                st.success("Вход выполнен успешно!")
+                st.experimental_rerun()  # Перезагрузить страницу после входа
+
+        st.subheader("Или зарегистрируйтесь")
+        admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
+
+        if st.button("Зарегистрироваться"):
+            if admin_password == 'adminmorshen1995':
+                token = generate_token()
+                try:
+                    bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
+                    save_token(token)  # Сохраняем токен в базу данных
+                    st.session_state['admin_token'] = token
+                    st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
+                except telebot.apihelper.ApiTelegramException as e:
+                    st.error(f"Ошибка при отправке сообщения в Telegram: {e}")
+                    print(f"Ошибка при отправке сообщения: {e}")  # Выводим подробную ошибку для отладки
+            else:
+                st.error("Неверный админский пароль!")
 
 if __name__ == "__main__":
     main()
