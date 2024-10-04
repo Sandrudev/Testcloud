@@ -20,8 +20,8 @@ tokens_list = []
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-# Список для хранения загруженных файлов
-uploaded_files_list = []
+# Словарь для хранения загруженных файлов по токенам
+uploaded_files_dict = {}
 
 # Функция для загрузки файла
 def upload_file(file, user_token):
@@ -37,14 +37,21 @@ def upload_file(file, user_token):
     with open(file_path, 'rb') as f:
         try:
             bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
-            # Добавляем файл в список загруженных
-            uploaded_files_list.append({'name': filename, 'url': file_path, 'type': file_type})
+            # Добавляем файл в словарь загруженных файлов по токену
+            if user_token not in uploaded_files_dict:
+                uploaded_files_dict[user_token] = []
+            uploaded_files_dict[user_token].append({'name': filename, 'url': file_path, 'type': file_type})
         except telebot.apihelper.ApiException as e:
             st.error(f"Ошибка при отправке файла в Telegram: {e}")
 
-# Проверка наличия токена в списке токенов
-def check_token(token):
-    return token in tokens_list
+# Проверка наличия токена в последних сообщениях канала
+def check_token_in_channel(token):
+    updates = bot.get_updates()
+    for update in updates:
+        if update.message and update.message.chat.id == CHANNEL_ID:
+            if token in update.message.caption:
+                return True
+    return False
 
 # Основной интерфейс Streamlit
 def main():
@@ -56,7 +63,7 @@ def main():
         login_token = st.text_input("Введите ваш токен")
 
         if st.button("Войти"):
-            if check_token(login_token):
+            if check_token_in_channel(login_token):
                 st.session_state['admin_token'] = login_token
                 st.success("Вход выполнен успешно!")
                 st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
@@ -88,9 +95,9 @@ def main():
             st.success("Файл успешно загружен!")
 
         # Отображаем загруженные файлы по токену
-        if uploaded_files_list:
+        if st.session_state['admin_token'] in uploaded_files_dict:
             st.subheader("Загруженные файлы")
-            for file in uploaded_files_list:
+            for file in uploaded_files_dict[st.session_state['admin_token']]:
                 if file['type'] == 'image':
                     st.image(file['url'], caption=file['name'])
                 elif file['type'] == 'video':
@@ -99,7 +106,7 @@ def main():
         # Опция выхода из системы
         if st.button("Выйти"):
             del st.session_state['admin_token']
-            uploaded_files_list.clear()  # Очищаем список загруженных файлов при выходе
+            uploaded_files_dict.clear()  # Очищаем словарь загруженных файлов при выходе
             st.experimental_rerun()
 
 if __name__ == "__main__":
