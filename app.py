@@ -97,9 +97,11 @@ def main():
             if check_token(login_token):
                 st.session_state['admin_token'] = login_token
                 st.success("Вход выполнен успешно!")
-                st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
-            else:
-                st.error("Неверный токен! Пожалуйста, проверьте и попробуйте снова.")
+                # Перезагружаем приложение для обновления состояния
+                try:
+                    st.experimental_rerun()
+                except Exception as e:
+                    st.error(f"Ошибка при перезагрузке приложения: {e}")
 
         st.subheader("Или зарегистрируйтесь")
         admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
