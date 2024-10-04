@@ -5,21 +5,23 @@ import telebot
 import streamlit as st
 
 # Настройки вашего приложения
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSЗpTfrtLyWsK1GM2JE'  # Ваш токен бота
+TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
 CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
 UPLOAD_FOLDER = 'uploads'
-TOKENS_FILE = 'tokens.txt'  # Файл для хранения токенов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Создаем экземпляр бота Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Список для хранения загруженных файлов
-uploaded_files_dict = {}
+# Список для хранения токенов (можно заменить на более надежное хранилище)
+tokens_list = []
 
 # Функция для генерации случайных токенов
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+# Список для хранения загруженных файлов
+uploaded_files_list = []
 
 # Функция для загрузки файла
 def upload_file(file, user_token):
@@ -35,36 +37,18 @@ def upload_file(file, user_token):
     with open(file_path, 'rb') as f:
         try:
             bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
-            # Добавляем файл в словарь загруженных по токену
-            if user_token not in uploaded_files_dict:
-                uploaded_files_dict[user_token] = []
-            uploaded_files_dict[user_token].append({'name': filename, 'url': file_path, 'type': file_type})
+            # Добавляем файл в список загруженных
+            uploaded_files_list.append({'name': filename, 'url': file_path, 'type': file_type})
         except telebot.apihelper.ApiException as e:
             st.error(f"Ошибка при отправке файла в Telegram: {e}")
 
-# Функция для сохранения токена в файл
-def save_token(token):
-    with open(TOKENS_FILE, 'a') as f:
-        f.write(token + '\n')
-
-# Функция для загрузки токенов из файла
-def load_tokens():
-    if os.path.exists(TOKENS_FILE):
-        with open(TOKENS_FILE, 'r') as f:
-            return [line.strip() for line in f.readlines()]
-    return []
-
 # Проверка наличия токена в списке токенов
 def check_token(token):
-    tokens_list = load_tokens()
     return token in tokens_list
 
 # Основной интерфейс Streamlit
 def main():
     st.title("Приложение Streamlit с интеграцией Telegram")
-
-    # Загружаем токены из файла
-    tokens_list = load_tokens()
 
     # Раздел для входа
     if 'admin_token' not in st.session_state:
@@ -87,7 +71,7 @@ def main():
                 token = generate_token()
                 # Отправляем сгенерированный токен в канал Telegram и добавляем его в список токенов
                 bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
-                save_token(token)  # Сохраняем токен в файл
+                tokens_list.append(token)  # Сохраняем токен в списке
                 st.session_state['admin_token'] = token
                 st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
             else:
@@ -104,10 +88,9 @@ def main():
             st.success("Файл успешно загружен!")
 
         # Отображаем загруженные файлы по токену
-        user_token = st.session_state['admin_token']
-        if user_token in uploaded_files_dict:
+        if uploaded_files_list:
             st.subheader("Загруженные файлы")
-            for file in uploaded_files_dict[user_token]:
+            for file in uploaded_files_list:
                 if file['type'] == 'image':
                     st.image(file['url'], caption=file['name'])
                 elif file['type'] == 'video':
@@ -116,6 +99,7 @@ def main():
         # Опция выхода из системы
         if st.button("Выйти"):
             del st.session_state['admin_token']
+            uploaded_files_list.clear()  # Очищаем список загруженных файлов при выходе
             st.experimental_rerun()
 
 if __name__ == "__main__":
