@@ -8,21 +8,20 @@ import streamlit as st
 TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
 CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
 UPLOAD_FOLDER = 'uploads'
+TOKEN_FILE = 'tokens.txt'  # Файл для хранения токенов
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Создаем экземпляр бота Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Список для хранения токенов (можно заменить на более надежное хранилище)
-tokens_list = []
+# Инициализация словаря для загруженных файлов в сессии
+if 'uploaded_files_dict' not in st.session_state:
+    st.session_state['uploaded_files_dict'] = {}
 
 # Функция для генерации случайных токенов
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-# Инициализация словаря для загруженных файлов в сессии
-if 'uploaded_files_dict' not in st.session_state:
-    st.session_state['uploaded_files_dict'] = {}
 
 # Функция для загрузки файла
 def upload_file(file, user_token):
@@ -48,18 +47,22 @@ def upload_file(file, user_token):
         st.error(f"Ошибка при отправке файла в Telegram: {e}")
         print(f"Ошибка при отправке файла: {e}")  # Выводим подробную ошибку для отладки
 
-# Проверка наличия токена в последних обновлениях (до 100)
-def check_token_in_channel(token):
-    try:
-        updates = bot.get_updates()
-        for update in updates:
-            if update.message and update.message.chat.id == int(CHANNEL_ID):
-                if update.message.caption and token in update.message.caption:
-                    return True
-    except telebot.apihelper.ApiTelegramException as e:
-        st.error(f"Ошибка при проверке токена: {e}")
-        print(f"Ошибка при проверке токена: {e}")  # Логируем ошибку для отладки
-    return False
+# Функция для записи токенов в файл
+def save_token(token):
+    with open(TOKEN_FILE, 'a') as f:
+        f.write(token + '\n')
+
+# Функция для чтения токенов из файла
+def load_tokens():
+    if os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, 'r') as f:
+            return [line.strip() for line in f.readlines()]
+    return []
+
+# Проверка наличия токена в сохранённых токенах
+def check_token(token):
+    tokens = load_tokens()
+    return token in tokens
 
 # Основной интерфейс Streamlit
 def main():
@@ -71,7 +74,7 @@ def main():
         login_token = st.text_input("Введите ваш токен")
 
         if st.button("Войти"):
-            if check_token_in_channel(login_token):
+            if check_token(login_token):
                 st.session_state['admin_token'] = login_token
                 st.success("Вход выполнен успешно!")
                 st.experimental_rerun()  # Перезагружаем приложение для обновления состояния
@@ -86,7 +89,7 @@ def main():
                 token = generate_token()
                 try:
                     bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
-                    tokens_list.append(token)  # Сохраняем токен в списке
+                    save_token(token)  # Сохраняем токен в файл
                     st.session_state['admin_token'] = token
                     st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
                 except telebot.apihelper.ApiTelegramException as e:
