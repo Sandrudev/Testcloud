@@ -5,7 +5,7 @@ import telebot
 import streamlit as st
 
 # Настройки вашего приложения
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSЗпTfrtLyWsK1GM2JE'  # Ваш токен бота
+TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
 CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
