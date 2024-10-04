@@ -20,8 +20,9 @@ tokens_list = []
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-# Словарь для хранения загруженных файлов по токенам (сохраняется между сессиями)
-uploaded_files_dict = {}
+# Инициализация словаря для загруженных файлов в сессии
+if 'uploaded_files_dict' not in st.session_state:
+    st.session_state['uploaded_files_dict'] = {}
 
 # Функция для загрузки файла
 def upload_file(file, user_token):
@@ -38,10 +39,10 @@ def upload_file(file, user_token):
         with open(file_path, 'rb') as f:
             bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
         
-        # Добавляем файл в словарь загруженных файлов по токену
-        if user_token not in uploaded_files_dict:
-            uploaded_files_dict[user_token] = []
-        uploaded_files_dict[user_token].append({'name': filename, 'url': file_path, 'type': file_type})
+        # Добавляем файл в словарь загруженных файлов по токену в сессию
+        if user_token not in st.session_state['uploaded_files_dict']:
+            st.session_state['uploaded_files_dict'][user_token] = []
+        st.session_state['uploaded_files_dict'][user_token].append({'name': filename, 'url': file_path, 'type': file_type})
         
     except telebot.apihelper.ApiTelegramException as e:
         st.error(f"Ошибка при отправке файла в Telegram: {e}")
@@ -101,9 +102,9 @@ def main():
             st.success("Файл успешно загружен!")
 
         # Отображаем загруженные файлы по токену
-        if st.session_state['admin_token'] in uploaded_files_dict:
+        if st.session_state['admin_token'] in st.session_state['uploaded_files_dict']:
             st.subheader("Загруженные файлы")
-            for file in uploaded_files_dict[st.session_state['admin_token']]:
+            for file in st.session_state['uploaded_files_dict'][st.session_state['admin_token']]:
                 if file['type'] == 'image':
                     st.image(file['url'], caption=file['name'])
                 elif file['type'] == 'video':
