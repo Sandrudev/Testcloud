@@ -8,34 +8,20 @@ import sqlite3
 # Настройки вашего приложения
 TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
 CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
-UPLOAD_FOLDER = 'uploads'
 DB_FILE = 'tokens_files.db'  # Имя файла базы данных
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# Создаем экземпляр бота Telegram
+# Создание экземпляра бота Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 # Создание подключения к базе данных
 conn = sqlite3.connect(DB_FILE, check_same_thread=False)
 c = conn.cursor()
 
-# Создание таблицы для токенов и файлов
+# Создание таблицы для токенов
 c.execute('''
     CREATE TABLE IF NOT EXISTS tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         token TEXT UNIQUE
-    )
-''')
-
-c.execute('''
-    CREATE TABLE IF NOT EXISTS files (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        token TEXT,
-        filename TEXT,
-        filetype TEXT,
-        filepath TEXT,
-        FOREIGN KEY(token) REFERENCES tokens(token)
     )
 ''')
 conn.commit()
@@ -44,27 +30,11 @@ conn.commit()
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-# Функция для загрузки файла
+# Функция для отправки файла в канал Telegram
 def upload_file(file, user_token):
-    filename = file.name
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    
-    with open(file_path, 'wb') as f:
-        f.write(file.getbuffer())
-
-    file_type = 'image' if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) else 'video'
-    
     # Отправляем файл в канал Telegram с токеном в качестве подписи
     try:
-        with open(file_path, 'rb') as f:
-            bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
-        
-        # Сохраняем файл в базу данных
-        c.execute('''
-            INSERT INTO files (token, filename, filetype, filepath) VALUES (?, ?, ?, ?)
-        ''', (user_token, filename, file_type, file_path))
-        conn.commit()
-        
+        bot.send_document(chat_id=CHANNEL_ID, document=file, caption=user_token)
     except telebot.apihelper.ApiTelegramException as e:
         st.error(f"Ошибка при отправке файла в Telegram: {e}")
         print(f"Ошибка при отправке файла: {e}")  # Выводим подробную ошибку для отладки
@@ -79,10 +49,20 @@ def save_token(token):
     c.execute('INSERT INTO tokens (token) VALUES (?)', (token,))
     conn.commit()
 
-# Функция для получения файлов по токену
+# Функция для получения файлов из Telegram-канала
 def get_files_by_token(token):
-    c.execute('SELECT filename, filepath, filetype FROM files WHERE token = ?', (token,))
-    return c.fetchall()
+    updates = bot.get_updates()
+    files = []
+    for update in updates:
+        if update.message and update.message.chat.id == int(CHANNEL_ID):
+            if update.message.caption and token in update.message.caption:
+                if update.message.document:
+                    files.append({
+                        'filename': update.message.document.file_name,
+                        'filetype': update.message.document.mime_type,
+                        'file_id': update.message.document.file_id
+                    })
+    return files
 
 # Основной интерфейс Streamlit
 def main():
@@ -94,7 +74,7 @@ def main():
         st.subheader("Панель управления")
 
         # Опция загрузки файла
-        uploaded_file = st.file_uploader("Выберите файл для загрузки")
+        uploaded_file = st.file_uploader("Выберите файл для загрузки", type=["png", "jpg", "jpeg", "gif", "mp4"])
         if uploaded_file is not None:
             upload_file(uploaded_file, st.session_state['admin_token'])
             st.success("Файл успешно загружен!")
@@ -103,11 +83,12 @@ def main():
         files = get_files_by_token(st.session_state['admin_token'])
         if files:
             st.subheader("Загруженные файлы")
-            for filename, filepath, filetype in files:
-                if filetype == 'image':
-                    st.image(filepath, caption=filename)
-                elif filetype == 'video':
-                    st.video(filepath)
+            for file in files:
+                file_id = file['file_id']
+                if 'image' in file['filetype']:
+                    st.image(bot.get_file(file_id).file_path, caption=file['filename'])
+                elif 'video' in file['filetype']:
+                    st.video(bot.get_file(file_id).file_path)
 
         # Опция выхода из системы
         if st.button("Выйти"):
