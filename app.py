@@ -3,21 +3,42 @@ import string
 import os
 import telebot
 import streamlit as st
+import sqlite3
 
 # Настройки вашего приложения
 TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
 CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
 UPLOAD_FOLDER = 'uploads'
-TOKEN_FILE = 'tokens.txt'  # Файл для хранения токенов
+DB_FILE = 'tokens_files.db'  # Имя файла базы данных
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Создаем экземпляр бота Telegram
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Инициализация словаря для загруженных файлов в сессии
-if 'uploaded_files_dict' not in st.session_state:
-    st.session_state['uploaded_files_dict'] = {}
+# Создание подключения к базе данных
+conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+c = conn.cursor()
+
+# Создание таблицы для токенов и файлов
+c.execute('''
+    CREATE TABLE IF NOT EXISTS tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT UNIQUE
+    )
+''')
+
+c.execute('''
+    CREATE TABLE IF NOT EXISTS files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT,
+        filename TEXT,
+        filetype TEXT,
+        filepath TEXT,
+        FOREIGN KEY(token) REFERENCES tokens(token)
+    )
+''')
+conn.commit()
 
 # Функция для генерации случайных токенов
 def generate_token(length=12):
@@ -38,31 +59,30 @@ def upload_file(file, user_token):
         with open(file_path, 'rb') as f:
             bot.send_document(chat_id=CHANNEL_ID, document=f, caption=user_token)
         
-        # Добавляем файл в словарь загруженных файлов по токену в сессию
-        if user_token not in st.session_state['uploaded_files_dict']:
-            st.session_state['uploaded_files_dict'][user_token] = []
-        st.session_state['uploaded_files_dict'][user_token].append({'name': filename, 'url': file_path, 'type': file_type})
+        # Сохраняем файл в базу данных
+        c.execute('''
+            INSERT INTO files (token, filename, filetype, filepath) VALUES (?, ?, ?, ?)
+        ''', (user_token, filename, file_type, file_path))
+        conn.commit()
         
     except telebot.apihelper.ApiTelegramException as e:
         st.error(f"Ошибка при отправке файла в Telegram: {e}")
         print(f"Ошибка при отправке файла: {e}")  # Выводим подробную ошибку для отладки
 
-# Функция для записи токенов в файл
-def save_token(token):
-    with open(TOKEN_FILE, 'a') as f:
-        f.write(token + '\n')
-
-# Функция для чтения токенов из файла
-def load_tokens():
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, 'r') as f:
-            return [line.strip() for line in f.readlines()]
-    return []
-
-# Проверка наличия токена в сохранённых токенах
+# Функция для проверки токена в базе данных
 def check_token(token):
-    tokens = load_tokens()
-    return token in tokens
+    c.execute('SELECT token FROM tokens WHERE token = ?', (token,))
+    return c.fetchone() is not None
+
+# Функция для сохранения токена в базе данных
+def save_token(token):
+    c.execute('INSERT INTO tokens (token) VALUES (?)', (token,))
+    conn.commit()
+
+# Функция для получения файлов по токену
+def get_files_by_token(token):
+    c.execute('SELECT filename, filepath, filetype FROM files WHERE token = ?', (token,))
+    return c.fetchall()
 
 # Основной интерфейс Streamlit
 def main():
@@ -89,7 +109,7 @@ def main():
                 token = generate_token()
                 try:
                     bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
-                    save_token(token)  # Сохраняем токен в файл
+                    save_token(token)  # Сохраняем токен в базу данных
                     st.session_state['admin_token'] = token
                     st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
                 except telebot.apihelper.ApiTelegramException as e:
@@ -109,13 +129,14 @@ def main():
             st.success("Файл успешно загружен!")
 
         # Отображаем загруженные файлы по токену
-        if st.session_state['admin_token'] in st.session_state['uploaded_files_dict']:
+        files = get_files_by_token(st.session_state['admin_token'])
+        if files:
             st.subheader("Загруженные файлы")
-            for file in st.session_state['uploaded_files_dict'][st.session_state['admin_token']]:
-                if file['type'] == 'image':
-                    st.image(file['url'], caption=file['name'])
-                elif file['type'] == 'video':
-                    st.video(file['url'])
+            for filename, filepath, filetype in files:
+                if filetype == 'image':
+                    st.image(filepath, caption=filename)
+                elif filetype == 'video':
+                    st.video(filepath)
 
         # Опция выхода из системы
         if st.button("Выйти"):
