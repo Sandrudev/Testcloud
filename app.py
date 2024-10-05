@@ -1,4 +1,5 @@
 import streamlit as st
+import asyncio
 from telethon import TelegramClient
 from telethon.tl.functions.channels import GetParticipantsRequest
 from telethon.tl.types import ChannelParticipantsSearch
@@ -31,8 +32,15 @@ async def fetch_participants():
 
     return participants
 
-if st.button("Получить участников"):
-    with st.spinner("Загрузка участников..."):
-        participants = client.loop.run_until_complete(fetch_participants())
-        for user in participants:
-            st.write(f"ID: {user.id}, Username: {user.username or 'Нет имени пользователя'}")
+def main():
+    if st.button("Получить участников"):
+        with st.spinner("Загрузка участников..."):
+            try:
+                participants = asyncio.run(fetch_participants())
+                for user in participants:
+                    st.write(f"ID: {user.id}, Username: {user.username or 'Нет имени пользователя'}")
+            except Exception as e:
+                st.error(f"Произошла ошибка: {e}")
+
+if __name__ == "__main__":
+    main()
