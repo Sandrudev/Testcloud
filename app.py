@@ -7,7 +7,7 @@ import sqlite3
 
 # Настройки вашего приложения
 TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
-CHANNEL_ID = '-1002173127202'  # Ваш ID канала Telegram
+GROUP_ID = '-1002311765715'  # Ваш ID группы Telegram (замените на ID вашей группы)
 DB_FILE = 'tokens_files.db'  # Имя файла базы данных
 
 # Создание экземпляра бота Telegram
@@ -30,11 +30,11 @@ conn.commit()
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-# Функция для отправки файла в канал Telegram
+# Функция для отправки файла в группу Telegram
 def upload_file(file, user_token):
-    # Отправляем файл в канал Telegram с токеном в качестве подписи
+    # Отправляем файл в группу Telegram с токеном в качестве подписи
     try:
-        bot.send_document(chat_id=CHANNEL_ID, document=file, caption=user_token)
+        bot.send_document(chat_id=GROUP_ID, document=file, caption=user_token)
     except telebot.apihelper.ApiTelegramException as e:
         st.error(f"Ошибка при отправке файла в Telegram: {e}")
         print(f"Ошибка при отправке файла: {e}")  # Выводим подробную ошибку для отладки
@@ -49,12 +49,12 @@ def save_token(token):
     c.execute('INSERT INTO tokens (token) VALUES (?)', (token,))
     conn.commit()
 
-# Функция для получения файлов из Telegram-канала
+# Функция для получения файлов из группы Telegram по токену
 def get_files_by_token(token):
     updates = bot.get_updates()
     files = []
     for update in updates:
-        if update.message and update.message.chat.id == int(CHANNEL_ID):
+        if update.message and update.message.chat.id == int(GROUP_ID):  # Проверяем ID группы
             if update.message.caption and token in update.message.caption:
                 if update.message.document:
                     files.append({
@@ -124,7 +124,7 @@ def main():
             if admin_password == 'adminmorshen1995':
                 token = generate_token()
                 try:
-                    bot.send_message(chat_id=CHANNEL_ID, text=f"Новый токен: {token}")
+                    bot.send_message(chat_id=GROUP_ID, text=f"Новый токен: {token}")  # Изменено на GROUP_ID
                     save_token(token)  # Сохраняем токен в базу данных
                     st.session_state['admin_token'] = token
                     st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
