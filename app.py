@@ -2,6 +2,7 @@ import streamlit as st
 from telethon import TelegramClient
 from telethon.tl.functions.channels import GetParticipantsRequest
 from telethon.tl.types import ChannelParticipantsSearch
+import asyncio
 
 api_id = '22328650'
 api_hash = '20b45c386598fab8028b1d99b63aeeeb'
@@ -32,7 +33,7 @@ st.title("Получение участников группы Telegram")
 group_username = st.text_input("Введите имя группы (username):")
 if st.button("Получить участников"):
     if group_username:
-        participants = client.loop.run_until_complete(fetch_participants(group_username))
+        participants = asyncio.run(fetch_participants(group_username))
         for user in participants:
             st.write(f"ID: {user.id}, Username: {user.username}")
     else:
