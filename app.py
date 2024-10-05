@@ -36,6 +36,25 @@ async def start_client(phone_number):
     
     return client
 
+async def main_app(phone_number, group_username):
+    client = await start_client(phone_number)
+
+    # Запрашиваем код подтверждения, если это необходимо
+    if not client.is_user_authorized():
+        code = st.text_input("Введите код подтверждения", type="password")
+        if code:
+            await client.sign_in(phone=phone_number, code=code)
+
+    # Запрашиваем пароль, если это необходимо
+    if isinstance(client.session, SessionPasswordNeededError):
+        password = st.text_input("Введите пароль", type="password")
+        if password:
+            await client.sign_in(password=password)
+
+    # Получаем участников группы
+    participants = await fetch_participants(client, group_username)
+    return participants
+
 def main():
     st.title("Telegram Group Participants Fetcher")
 
@@ -48,22 +67,7 @@ def main():
         if phone_number:
             with st.spinner("Авторизация..."):
                 try:
-                    client = asyncio.run(start_client(phone_number))
-                    
-                    # Запрашиваем код подтверждения, если это необходимо
-                    if client.is_user_authorized() == False:
-                        code = st.text_input("Введите код подтверждения", type="password")
-                        if code:
-                            await client.sign_in(phone=phone_number, code=code)
-
-                    # Запрашиваем пароль, если это необходимо
-                    if isinstance(client.session, SessionPasswordNeededError):
-                        password = st.text_input("Введите пароль", type="password")
-                        if password:
-                            await client.sign_in(password=password)
-
-                    # Получаем участников группы
-                    participants = asyncio.run(fetch_participants(client, group_username))
+                    participants = asyncio.run(main_app(phone_number, group_username))
                     for user in participants:
                         st.write(f"ID: {user.id}, Username: {user.username or 'Нет имени пользователя'}")
                 except Exception as e:
