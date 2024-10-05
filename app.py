@@ -1,40 +1,38 @@
 import streamlit as st
-import asyncio
 from telethon import TelegramClient
+from telethon.tl.functions.channels import GetParticipantsRequest
+from telethon.tl.types import ChannelParticipantsSearch
 
-# Ваши api_id и api_hash
-api_id = 22328650
-api_hash = '20b45c386598fab8028b1d99b63aeeeb'
+# Ввод данных API
+api_id = st.text_input("Введите API ID", value='22328650')
+api_hash = st.text_input("Введите API Hash", value='20b45c386598fab8028b1d99b63aeeeb')
+group_username = st.text_input("Введите имя группы", value='maskmedic')
 
 client = TelegramClient('session_name', api_id, api_hash)
 
-async def main(phone, code, password):
-    await client.start(phone=phone)
-    
-    if code:
-        await client.sign_in(phone, code, password=password)
-    
-    st.success("Успешно авторизован!")
+async def fetch_participants():
+    await client.start()
+    participants = []
+    offset = 0
+    limit = 100
 
-    # Выбор чата для парсинга
-    chat = st.text_input("Введите имя чата или его ID:")
-    
-    if st.button("Запустить парсер"):
-        if chat:
-            messages = []
-            async for message in client.iter_messages(chat):
-                messages.append(f"{message.sender_id}: {message.text}")
-            st.write("\n".join(messages))
-        else:
-            st.error("Пожалуйста, введите имя чата.")
+    while True:
+        chunk = await client(GetParticipantsRequest(
+            group_username,
+            ChannelParticipantsSearch(''),
+            offset,
+            limit,
+            hash=0
+        ))
+        if not chunk.users:
+            break
+        participants.extend(chunk.users)
+        offset += len(chunk.users)
 
-if __name__ == "__main__":
-    phone = st.text_input("Введите номер телефона:")
-    code = st.text_input("Введите код подтверждения:")
-    password = st.text_input("Введите пароль (если есть):", type="password")
+    return participants
 
-    if st.button("Авторизоваться"):
-        try:
-            asyncio.run(main(phone, code, password))
-        except Exception as e:
-            st.error(f"Произошла ошибка: {e}")
+if st.button("Получить участников"):
+    with st.spinner("Загрузка участников..."):
+        participants = client.loop.run_until_complete(fetch_participants())
+        for user in participants:
+            st.write(f"ID: {user.id}, Username: {user.username or 'Нет имени пользователя'}")
