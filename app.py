@@ -46,20 +46,19 @@ def main():
 
     if st.button("Авторизация"):
         if phone_number:
-            with st.spinner("Авторизация..."):
-                try:
-                    # Запускаем клиент в асинхронном режиме
-                    client = asyncio.run(start_client(phone_number))
-                    st.session_state.client = client  # Сохраняем клиент в состоянии
+            try:
+                # Запускаем клиент в асинхронном режиме
+                client = asyncio.run(start_client(phone_number))
+                st.session_state.client = client  # Сохраняем клиент в состоянии
 
-                    # Проверяем, требуется ли код подтверждения
-                    if not client.is_user_authorized():
-                        st.session_state.auth_step = "code_needed"  # Устанавливаем шаг авторизации
-                        st.success("Код отправлен на ваш номер. Пожалуйста, введите его ниже.")
-                    else:
-                        st.success("Вы уже авторизованы!")
-                except Exception as e:
-                    st.error(f"Произошла ошибка: {e}")
+                # Проверяем, требуется ли код подтверждения
+                if not client.is_user_authorized():
+                    st.session_state.auth_step = "code_needed"  # Устанавливаем шаг авторизации
+                    st.success("Код отправлен на ваш номер. Пожалуйста, введите его ниже.")
+                else:
+                    st.success("Вы уже авторизованы!")
+            except Exception as e:
+                st.error(f"Произошла ошибка: {e}")
         else:
             st.warning("Пожалуйста, введите номер телефона.")
 
