@@ -33,7 +33,6 @@ async def fetch_participants(client, group_username):
 async def start_client(phone_number):
     client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
     await client.start(phone=phone_number)
-    
     return client
 
 def main():
@@ -53,8 +52,8 @@ def main():
                         code = st.text_input("Введите код подтверждения", type="password")
                         if st.button("Подтвердить код"):
                             asyncio.run(client.sign_in(phone=phone_number, code=code))
-                            st.success("Авторизация прошла успешно!")
-                            
+                            st.success("Код подтвержден успешно!")
+
                             # Запрашиваем пароль, если это необходимо
                             if isinstance(client.session, SessionPasswordNeededError):
                                 password = st.text_input("Введите пароль", type="password")
