@@ -47,9 +47,11 @@ def main():
                     client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
 
                     # Запуск клиента и авторизация
-                    await client.start(phone=phone_number, code=code)
+                    async def start_client():
+                        await client.start(phone=phone_number, code=code)
+                        return await fetch_participants(client, group_username)
 
-                    participants = asyncio.run(fetch_participants(client, group_username))
+                    participants = asyncio.run(start_client())
                     for user in participants:
                         st.write(f"ID: {user.id}, Username: {user.username or 'Нет имени пользователя'}")
                 except Exception as e:
