@@ -29,12 +29,18 @@ async def fetch_participants(group_username):
     
     return participants
 
-st.title("Получение участников группы Telegram")
-group_username = st.text_input("Введите имя группы (username):")
-if st.button("Получить участников"):
-    if group_username:
-        participants = asyncio.run(fetch_participants(group_username))
-        for user in participants:
-            st.write(f"ID: {user.id}, Username: {user.username}")
-    else:
-        st.error("Пожалуйста, введите корректное имя группы.")
+def main():
+    st.title("Получение участников группы Telegram")
+    group_username = st.text_input("Введите имя группы (username):")
+    
+    if st.button("Получить участников"):
+        if group_username:
+            # Запуск асинхронной функции в синхронном контексте
+            participants = asyncio.run(fetch_participants(group_username))
+            for user in participants:
+                st.write(f"ID: {user.id}, Username: {user.username}")
+        else:
+            st.error("Пожалуйста, введите корректное имя группы.")
+
+if __name__ == "__main__":
+    main()
