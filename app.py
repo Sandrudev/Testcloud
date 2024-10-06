@@ -1,4 +1,5 @@
 import streamlit as st
+import asyncio
 from telethon import TelegramClient
 from telethon.tl.functions.channels import GetParticipantsRequest
 from telethon.tl.types import ChannelParticipantsSearch
@@ -30,14 +31,19 @@ async def fetch_participants(group_username):
     
     return [user.username for user in participants]
 
-st.title("Telegram Group Participant Fetcher")
-group_username = st.text_input("Enter the Telegram group username:")
+def main():
+    st.title("Telegram Group Participant Fetcher")
+    group_username = st.text_input("Enter the Telegram group username:")
 
-if st.button("Fetch Participants"):
-    if group_username:
-        usernames = client.loop.run_until_complete(fetch_participants(group_username))
-        st.write("Usernames of participants:")
-        for username in usernames:
-            st.write(username)
-    else:
-        st.error("Please enter a valid username.")
+    if st.button("Fetch Participants"):
+        if group_username:
+            # Create a new event loop and run the fetch_participants coroutine
+            usernames = asyncio.run(fetch_participants(group_username))
+            st.write("Usernames of participants:")
+            for username in usernames:
+                st.write(username)
+        else:
+            st.error("Please enter a valid username.")
+
+if __name__ == "__main__":
+    main()
