@@ -29,26 +29,31 @@ async def fetch_participants(client, group_username):
 
     return [user.username for user in participants]
 
-async def login(phone_number, code=None, password=None):
+async def login(phone_number, code=None, password=None, phone_code_hash=None):
     client = TelegramClient(session_name, api_id, api_hash)
 
     await client.connect()
 
     if not await client.is_user_authorized():
         if code is None:
-            await client.send_code_request(phone_number)
-            return client, "Введите код подтверждения, который вы получили в Telegram."
+            # Отправляем код на номер телефона
+            try:
+                sent = await client.send_code_request(phone_number)
+                return client, sent.phone_code_hash, "Введите код подтверждения, который вы получили в Telegram."
+            except Exception as e:
+                raise RuntimeError(f"Ошибка при отправке кода: {e}")
         else:
             try:
-                await client.sign_in(phone_number, code)
+                # Используем хэш кода для входа
+                await client.sign_in(phone_number, code, phone_code_hash=phone_code_hash)
             except SessionPasswordNeededError:
                 if password is None:
-                    return client, "Введите пароль двухфакторной аутентификации."
+                    return client, None, "Введите пароль двухфакторной аутентификации."
                 else:
                     await client.sign_in(password=password)
             except Exception as e:
                 raise RuntimeError(f"Ошибка авторизации: {e}")
-    return client, None
+    return client, None, None
 
 def main():
     st.title("Telegram Group Participant Fetcher")
@@ -56,9 +61,10 @@ def main():
     phone_number = st.text_input("Введите ваш номер телефона в формате +1234567890:")
     group_username = st.text_input("Введите имя группы Telegram:")
     
-    # Храним состояния для кода и пароля
+    # Храним состояния для кода, пароля и хэша
     code = st.session_state.get("code", "")
     password = st.session_state.get("password", "")
+    phone_code_hash = st.session_state.get("phone_code_hash", "")
 
     if 'client' not in st.session_state:
         st.session_state.client = None
@@ -67,7 +73,9 @@ def main():
         if phone_number and group_username:
             try:
                 if st.session_state.client is None:
-                    st.session_state.client, message = asyncio.run(login(phone_number))
+                    # Выполняем логин
+                    st.session_state.client, phone_code_hash, message = asyncio.run(login(phone_number))
+                    st.session_state.phone_code_hash = phone_code_hash
                     if message:
                         st.session_state.message = message
                     else:
@@ -89,7 +97,8 @@ def main():
         if code:
             st.session_state.code = code
             try:
-                st.session_state.client, message = asyncio.run(login(phone_number, code))
+                st.session_state.client, phone_code_hash, message = asyncio.run(login(phone_number, code, password, st.session_state.phone_code_hash))
+                st.session_state.phone_code_hash = phone_code_hash
                 if message:
                     st.session_state.message = message
                 else:
@@ -105,7 +114,7 @@ def main():
             if password:
                 st.session_state.password = password
                 try:
-                    st.session_state.client, message = asyncio.run(login(phone_number, code, password))
+                    st.session_state.client, _, message = asyncio.run(login(phone_number, code, password, st.session_state.phone_code_hash))
                     if message:
                         st.session_state.message = message
                     else:
