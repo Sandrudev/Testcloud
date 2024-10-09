@@ -97,7 +97,7 @@ def main():
         if code:
             st.session_state.code = code
             try:
-                st.session_state.client, phone_code_hash, message = asyncio.run(login(phone_number, code, password, st.session_state.get("phone_code_hash", "")))
+                st.session_state.client, phone_code_hash, message = asyncio.run(login(phone_number, code, password, st.session_state.phone_code_hash))
                 st.session_state.phone_code_hash = phone_code_hash
                 if message:
                     st.session_state.message = message
@@ -114,7 +114,7 @@ def main():
             if password:
                 st.session_state.password = password
                 try:
-                    st.session_state.client, _, message = asyncio.run(login(phone_number, code, password, st.session_state.get("phone_code_hash", "")))
+                    st.session_state.client, _, message = asyncio.run(login(phone_number, code, password, st.session_state.phone_code_hash))
                     if message:
                         st.session_state.message = message
                     else:
