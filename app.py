@@ -9,7 +9,7 @@ import streamlit as st
 # Telegram API configuration
 api_id = '22328650'
 api_hash = '20b45c386598fab8028b1d99b63aeeeb'
-GROUP_ID = '-1002369831664'  # Your Telegram group ID
+GROUP_ID = '4584864883'  # Your Telegram group ID
 DB_FILE = 'tokens.db'
 
 # Initialize the Telegram client with session file
