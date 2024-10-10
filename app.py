@@ -1,23 +1,23 @@
+import os
 import random
 import string
-import os
-import telebot
-import streamlit as st
 import sqlite3
+import asyncio
+from telethon import TelegramClient
+import streamlit as st
 
-# Настройки вашего приложения
-TELEGRAM_BOT_TOKEN = '5660590671:AAHboouGd0fFTpdjJSZpTfrtLyWsK1GM2JE'  # Ваш токен бота
-GROUP_ID = '-1002311765715'  # Ваш ID группы Telegram (замените на ID вашей группы)
-DB_FILE = 'tokens_files.db'  # Имя файла базы данных
+# Telegram API configuration
+api_id = '22328650'
+api_hash = '20b45c386598fab8028b1d99b63aeeeb'
+GROUP_ID = '-1002369831664'  # Your Telegram group ID
+DB_FILE = 'tokens.db'
 
-# Создание экземпляра бота Telegram
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+# Initialize the Telegram client with session file
+client = TelegramClient('session_name', api_id, api_hash)
 
-# Создание подключения к базе данных
+# Database setup
 conn = sqlite3.connect(DB_FILE, check_same_thread=False)
 c = conn.cursor()
-
-# Создание таблицы для токенов
 c.execute('''
     CREATE TABLE IF NOT EXISTS tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,113 +26,72 @@ c.execute('''
 ''')
 conn.commit()
 
-# Функция для генерации случайных токенов
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-# Функция для отправки файла в группу Telegram
-def upload_file(file, user_token):
-    # Отправляем файл в группу Telegram с токеном в качестве подписи
-    try:
-        bot.send_document(chat_id=GROUP_ID, document=file, caption=user_token)
-    except telebot.apihelper.ApiTelegramException as e:
-        st.error(f"Ошибка при отправке файла в Telegram: {e}")
-        print(f"Ошибка при отправке файла: {e}")  # Выводим подробную ошибку для отладки
+async def upload_file(file, user_token):
+    await client.start()
+    await client.send_file(GROUP_ID, file, caption=user_token)
 
-# Функция для проверки токена в базе данных
+async def get_files_by_token(token):
+    await client.start()
+    messages = await client.get_messages(GROUP_ID)
+    files = [msg for msg in messages if msg.caption and token in msg.caption]
+    return files
+
 def check_token(token):
     c.execute('SELECT token FROM tokens WHERE token = ?', (token,))
     return c.fetchone() is not None
 
-# Функция для сохранения токена в базе данных
 def save_token(token):
     c.execute('INSERT INTO tokens (token) VALUES (?)', (token,))
     conn.commit()
 
-# Функция для получения файлов из группы Telegram по токену
-def get_files_by_token(token):
-    updates = bot.get_updates()
-    files = []
-    for update in updates:
-        if update.message and update.message.chat.id == int(GROUP_ID):  # Проверяем ID группы
-            if update.message.caption and token in update.message.caption:
-                if update.message.document:
-                    files.append({
-                        'filename': update.message.document.file_name,
-                        'file_id': update.message.document.file_id,
-                        'file_size': update.message.document.file_size,
-                    })
-    return files
-
-# Функция для скачивания файла по file_id
-def download_file(file_id):
-    file_info = bot.get_file(file_id)
-    file_path = f"downloads/{file_info.file_path.split('/')[-1]}"
-    downloaded_file = bot.download_file(file_info.file_path)
-
-    # Сохранить файл на сервере (в папку downloads)
-    os.makedirs('downloads', exist_ok=True)
-    with open(file_path, 'wb') as f:
-        f.write(downloaded_file)
-
-    return file_path
-
-# Основной интерфейс Streamlit
 def main():
-    st.title("Приложение Streamlit с интеграцией Telegram")
+    st.title("Streamlit App with Telethon Integration")
 
-    # Проверка на авторизацию
     if 'admin_token' in st.session_state:
-        # После входа показываем панель управления
-        st.subheader("Панель управления")
+        st.subheader("Control Panel")
+        uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
 
-        # Опция загрузки файла
-        uploaded_file = st.file_uploader("Выберите файл для загрузки", type=["png", "jpg", "jpeg", "gif", "mp4"])
-        if uploaded_file is not None:
-            upload_file(uploaded_file, st.session_state['admin_token'])
-            st.success("Файл успешно загружен!")
+        if uploaded_file:
+            # Save the uploaded file temporarily
+            with open(uploaded_file.name, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            # Upload the file using the authenticated user's account
+            asyncio.run(upload_file(uploaded_file.name, st.session_state['admin_token']))
+            st.success("Image uploaded successfully!")
 
-        # Отображаем загруженные файлы по токену
-        files = get_files_by_token(st.session_state['admin_token'])
+            # Clean up the temporary file after uploading
+            os.remove(uploaded_file.name)
+
+        # Display files published under the user's token
+        files = asyncio.run(get_files_by_token(st.session_state['admin_token']))
         if files:
-            st.subheader("Загруженные файлы")
+            st.subheader("Published Files")
             for file in files:
-                if st.button(f"Скачать {file['filename']}"):
-                    file_path = download_file(file['file_id'])
-                    st.success(f"Файл {file['filename']} успешно скачан в {file_path}")
+                st.write(f"File: {file.document.file_name} - [Download](https://t.me/{GROUP_ID}/{file.id})")
 
-        # Опция выхода из системы
-        if st.button("Выйти"):
+        if st.button("Logout"):
             del st.session_state['admin_token']
-            st.experimental_rerun()  # Перезагрузить страницу после выхода
+            st.experimental_rerun()
 
     else:
-        # Раздел для входа
-        st.subheader("Вход")
-        login_token = st.text_input("Введите ваш токен")
+        st.subheader("Login")
+        login_token = st.text_input("Enter your token")
 
-        if st.button("Войти"):
+        if st.button("Login"):
             if check_token(login_token):
                 st.session_state['admin_token'] = login_token
-                st.success("Вход выполнен успешно!")
-                st.experimental_rerun()  # Перезагрузить страницу после входа
+                st.success("Login successful!")
+                st.experimental_rerun()
 
-        st.subheader("Или зарегистрируйтесь")
-        admin_password = st.text_input("Введите админский пароль для регистрации", type="password")
-
-        if st.button("Зарегистрироваться"):
-            if admin_password == 'adminmorshen1995':
-                token = generate_token()
-                try:
-                    bot.send_message(chat_id=GROUP_ID, text=f"Новый токен: {token}")  # Изменено на GROUP_ID
-                    save_token(token)  # Сохраняем токен в базу данных
-                    st.session_state['admin_token'] = token
-                    st.success(f"Регистрация прошла успешно! Ваш токен: {token}")
-                except telebot.apihelper.ApiTelegramException as e:
-                    st.error(f"Ошибка при отправке сообщения в Telegram: {e}")
-                    print(f"Ошибка при отправке сообщения: {e}")  # Выводим подробную ошибку для отладки
-            else:
-                st.error("Неверный админский пароль!")
+        st.subheader("Register")
+        if st.button("Register"):
+            token = generate_token()
+            save_token(token)
+            st.success(f"Registration successful! Your token: {token}")
 
 if __name__ == "__main__":
     main()
