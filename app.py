@@ -9,8 +9,18 @@ import streamlit as st
 # Telegram API configuration
 api_id = '22328650'
 api_hash = '20b45c386598fab8028b1d99b63aeeeb'
-GROUP_ID = '4584864883'  # Your Telegram group ID
+GROUP_ID = 4584864883  # Your Telegram group ID (use integer format)
 DB_FILE = 'tokens.db'
+
+# Function to create or get the current event loop
+def get_or_create_eventloop():
+    try:
+        return asyncio.get_event_loop()
+    except RuntimeError as ex:
+        if "There is no current event loop in thread" in str(ex):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop
 
 # Initialize the Telegram client with session file
 client = TelegramClient('session_name', api_id, api_hash)
@@ -29,9 +39,9 @@ conn.commit()
 def generate_token(length=12):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-async def upload_file(file, user_token):
+async def upload_file(file_path, user_token):
     await client.start()
-    await client.send_file(GROUP_ID, file, caption=user_token)
+    await client.send_file(GROUP_ID, file_path, caption=user_token)
 
 async def get_files_by_token(token):
     await client.start()
@@ -48,6 +58,9 @@ def save_token(token):
     conn.commit()
 
 def main():
+    # Set up the event loop
+    get_or_create_eventloop()
+
     st.title("Streamlit App with Telethon Integration")
 
     if 'admin_token' in st.session_state:
