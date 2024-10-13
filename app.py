@@ -67,31 +67,34 @@ if 'username' not in st.session_state:
         else:
             st.error("Пожалуйста, введите юзернейм.")
 else:
-    # Отображение сообщений из группы
-    if st.button("Обновить сообщения"):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        messages = loop.run_until_complete(get_messages(st.session_state.username_id))
-        
-        if isinstance(messages, str):
-            st.error(messages)
-        else:
-            for message in messages:
-                if hasattr(message, 'message'):
-                    sender_name = message.from_id  # Получение ID отправителя
-                    st.write(f"{sender_name}: {message.message}")
-
-    # Поле для ввода сообщения
-    user_message = st.text_input("Ваше сообщение:")
-    
-    if st.button("Отправить"):
-        if user_message:
+    # Проверка на наличие username_id перед обновлением сообщений
+    if 'username_id' in st.session_state:
+        if st.button("Обновить сообщения"):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(send_message(st.session_state.username_id, user_message))
-            if result:
-                st.error(result)
+            messages = loop.run_until_complete(get_messages(st.session_state.username_id))
+            
+            if isinstance(messages, str):
+                st.error(messages)
             else:
-                st.success("Сообщение отправлено!")
-        else:
-            st.error("Введите сообщение перед отправкой.")
+                for message in messages:
+                    if hasattr(message, 'message'):
+                        sender_name = message.from_id  # Получение ID отправителя
+                        st.write(f"{sender_name}: {message.message}")
+
+        # Поле для ввода сообщения
+        user_message = st.text_input("Ваше сообщение:")
+        
+        if st.button("Отправить"):
+            if user_message:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(send_message(st.session_state.username_id, user_message))
+                if result:
+                    st.error(result)
+                else:
+                    st.success("Сообщение отправлено!")
+            else:
+                st.error("Введите сообщение перед отправкой.")
+    else:
+        st.error("Пожалуйста, подтвердите ваш никнейм.")
