@@ -1,6 +1,6 @@
 import streamlit as st
 from telethon import TelegramClient
-from telethon.tl.functions.messages import GetHistoryRequest
+from telethon.tl.functions.messages import GetHistoryRequest, SendMessageRequest
 from telethon.errors import FloodWaitError, ChannelPrivateError
 import asyncio
 
@@ -9,11 +9,20 @@ API_ID = 22328650  # Ваш API ID
 API_HASH = '20b45c386598fab8028b1d99b63aeeeb'  # Ваш API Hash
 GROUP_ID = -1002394787009  # ID группы (отрицательный)
 
-# Функция для получения сообщений
-async def get_messages(api_id, api_hash, group_id):
-    client = TelegramClient('session_name', api_id, api_hash)
+# Инициализация клиента Telegram
+client = TelegramClient('session_name', API_ID, API_HASH)
+
+# Функция для отправки сообщений
+async def send_message(username, message):
     await client.start()
-    
+    try:
+        await client(SendMessageRequest(GROUP_ID, f"{username}: {message}"))
+    except Exception as e:
+        return f"Ошибка при отправке сообщения: {e}"
+
+# Функция для получения сообщений из группы
+async def get_messages():
+    await client.start()
     messages = []
     offset_id = 0
     limit = 100
@@ -21,7 +30,7 @@ async def get_messages(api_id, api_hash, group_id):
     while True:
         try:
             history = await client(GetHistoryRequest(
-                peer=group_id,
+                peer=GROUP_ID,
                 offset_id=offset_id,
                 limit=limit,
                 offset_date=None,
@@ -47,16 +56,34 @@ async def get_messages(api_id, api_hash, group_id):
     return messages
 
 # Интерфейс Streamlit
-st.title("Получение сообщений из Telegram")
+st.title("Чат в Telegram")
 
-if st.button("Получить сообщения"):
-    with st.spinner("Получение сообщений..."):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        messages = loop.run_until_complete(get_messages(API_ID, API_HASH, GROUP_ID))
-        
-        if isinstance(messages, str):
-            st.error(messages)
+# Запрос юзернейма у пользователя
+if 'username' not in st.session_state:
+    st.session_state.username = st.text_input("Введите ваш юзернейм:", "")
+    
+    if st.button("Подтвердить"):
+        if st.session_state.username:
+            st.success(f"Добро пожаловать, {st.session_state.username}!")
         else:
-            for message in messages:
-                st.write(f"ID: {message.id}, Текст: {message.message if hasattr(message, 'message') else 'Нет текста.'}")
+            st.error("Пожалуйста, введите юзернейм.")
+else:
+    # Отображение сообщений из группы
+    messages = asyncio.run(get_messages())
+    
+    if isinstance(messages, str):
+        st.error(messages)
+    else:
+        for message in messages:
+            if hasattr(message, 'message'):
+                st.write(f"{message.sender_id}: {message.message}")
+
+    # Поле для ввода сообщения
+    user_message = st.text_input("Ваше сообщение:")
+    
+    if st.button("Отправить"):
+        if user_message:
+            asyncio.run(send_message(st.session_state.username, user_message))
+            st.success("Сообщение отправлено!")
+        else:
+            st.error("Введите сообщение перед отправкой.")
