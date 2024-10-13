@@ -9,51 +9,48 @@ API_ID = 22328650  # Ваш API ID
 API_HASH = '20b45c386598fab8028b1d99b63aeeeb'  # Ваш API Hash
 GROUP_ID = -1002394787009  # ID группы (отрицательный)
 
-# Инициализация клиента Telegram
-client = TelegramClient('session_name', API_ID, API_HASH)
-
 # Функция для отправки сообщений
 async def send_message(username, message):
-    await client.start()
-    try:
-        await client(SendMessageRequest(GROUP_ID, f"{username}: {message}"))
-    except Exception as e:
-        return f"Ошибка при отправке сообщения: {e}"
+    async with TelegramClient('session_name', API_ID, API_HASH) as client:
+        try:
+            await client(SendMessageRequest(GROUP_ID, f"{username}: {message}"))
+        except Exception as e:
+            return f"Ошибка при отправке сообщения: {e}"
 
 # Функция для получения сообщений из группы
 async def get_messages():
-    await client.start()
-    messages = []
-    offset_id = 0
-    limit = 100
+    async with TelegramClient('session_name', API_ID, API_HASH) as client:
+        messages = []
+        offset_id = 0
+        limit = 100
 
-    while True:
-        try:
-            history = await client(GetHistoryRequest(
-                peer=GROUP_ID,
-                offset_id=offset_id,
-                limit=limit,
-                offset_date=None,
-                add_offset=0,
-                max_id=0,
-                min_id=0,
-                hash=0
-            ))
+        while True:
+            try:
+                history = await client(GetHistoryRequest(
+                    peer=GROUP_ID,
+                    offset_id=offset_id,
+                    limit=limit,
+                    offset_date=None,
+                    add_offset=0,
+                    max_id=0,
+                    min_id=0,
+                    hash=0
+                ))
 
-            if not history.messages:
-                break
-            
-            messages.extend(history.messages)
-            offset_id = history.messages[-1].id
+                if not history.messages:
+                    break
+                
+                messages.extend(history.messages)
+                offset_id = history.messages[-1].id
 
-        except FloodWaitError as e:
-            await asyncio.sleep(e.seconds)
-        except ChannelPrivateError:
-            return "Ошибка: У вас нет доступа к этой группе."
-        except Exception as e:
-            return f"Произошла ошибка: {e}"
+            except FloodWaitError as e:
+                await asyncio.sleep(e.seconds)
+            except ChannelPrivateError:
+                return "Ошибка: У вас нет доступа к этой группе."
+            except Exception as e:
+                return f"Произошла ошибка: {e}"
 
-    return messages
+        return messages
 
 # Интерфейс Streamlit
 st.title("Чат в Telegram")
