@@ -66,14 +66,15 @@ if 'username' not in st.session_state:
             st.error("Пожалуйста, введите юзернейм.")
 else:
     # Отображение сообщений из группы
-    messages = asyncio.run(get_messages())
-    
-    if isinstance(messages, str):
-        st.error(messages)
-    else:
-        for message in messages:
-            if hasattr(message, 'message'):
-                st.write(f"{message.sender_id}: {message.message}")
+    if st.button("Обновить сообщения"):
+        messages = asyncio.run(get_messages())
+        
+        if isinstance(messages, str):
+            st.error(messages)
+        else:
+            for message in messages:
+                if hasattr(message, 'message'):
+                    st.write(f"{message.sender_id}: {message.message}")
 
     # Поле для ввода сообщения
     user_message = st.text_input("Ваше сообщение:")
