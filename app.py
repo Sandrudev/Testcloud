@@ -75,8 +75,9 @@ else:
         else:
             for message in messages:
                 if hasattr(message, 'message'):
-                    # Отображение сообщения с юзернеймом отправителя
-                    st.write(f"{message.sender_id}: {message.message}")
+                    # Отображение сообщения с ником отправителя (или ID)
+                    sender_name = message.sender_id if not hasattr(message, 'from_id') else message.from_id.user_id
+                    st.write(f"{sender_name}: {message.message}")
 
     # Поле для ввода сообщения
     user_message = st.text_input("Ваше сообщение:")
