@@ -83,7 +83,10 @@ else:
     
     if st.button("Отправить"):
         if user_message:
-            asyncio.run(send_message(st.session_state.username, user_message))
-            st.success("Сообщение отправлено!")
+            result = asyncio.run(send_message(st.session_state.username, user_message))
+            if result:
+                st.error(result)
+            else:
+                st.success("Сообщение отправлено!")
         else:
             st.error("Введите сообщение перед отправкой.")
