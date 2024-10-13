@@ -13,9 +13,7 @@ GROUP_ID = -1002394787009  # ID группы (отрицательный)
 async def send_message(username, message):
     async with TelegramClient('session_name', API_ID, API_HASH) as client:
         try:
-            # Отправка сообщения о том, что пользователь присоединился
             await client(SendMessageRequest(GROUP_ID, f"Пользователь {username} присоединился."))
-            # Отправка сообщения от пользователя
             await client(SendMessageRequest(GROUP_ID, f"{username}: {message}"))
             return None  # Успешная отправка
         except Exception as e:
@@ -71,7 +69,9 @@ if 'username' not in st.session_state:
 else:
     # Отображение сообщений из группы
     if st.button("Обновить сообщения"):
-        messages = asyncio.run(get_messages(st.session_state.username_id))
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        messages = loop.run_until_complete(get_messages(st.session_state.username_id))
         
         if isinstance(messages, str):
             st.error(messages)
@@ -86,7 +86,9 @@ else:
     
     if st.button("Отправить"):
         if user_message:
-            result = asyncio.run(send_message(st.session_state.username_id, user_message))
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(send_message(st.session_state.username_id, user_message))
             if result:
                 st.error(result)
             else:
