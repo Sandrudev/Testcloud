@@ -34,10 +34,10 @@ async def process_users(source_group, target_channel):
             try:
                 user_to_add = await client.get_input_entity(user.username)
                 await client(InviteToChannelRequest(target_channel, [user_to_add]))
-                print(f"Добавлен {user.username}")
+                st.write(f"Добавлен {user.username}")  # Выводим информацию о добавлении
                 await asyncio.sleep(20)  # Задержка во избежание превышения лимита
             except Exception as e:
-                print(f"Пропущен {user.username}: {e}")
+                st.write(f"Пропущен {user.username}: {e}")  # Выводим информацию об ошибках
 
 def main():
     st.title("Пригласитель пользователей Telegram")
@@ -47,8 +47,11 @@ def main():
 
     if st.button("Начать приглашение"):
         if source_group_username and target_channel_username:
-            asyncio.run(process_users(source_group_username, target_channel_username))
-            st.success("Процесс приглашения начат!")
+            try:
+                asyncio.run(process_users(source_group_username, target_channel_username))
+                st.success("Процесс приглашения завершен!")
+            except Exception as e:
+                st.error(f"Ошибка: {e}")
         else:
             st.error("Пожалуйста, заполните оба поля.")
 
