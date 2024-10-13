@@ -8,38 +8,36 @@ api_id = '22328650'
 api_hash = '20b45c386598fab8028b1d99b63aeeeb'
 session_file = 'session_name'  # Убедитесь, что файл сессии находится в той же директории
 
-client = TelegramClient(session_file, api_id, api_hash)
-
 async def process_users(source_group, target_channel):
-    await client.start()
-    participants = []
-    offset = 0
-    limit = 100
+    async with TelegramClient(session_file, api_id, api_hash) as client:
+        participants = []
+        offset = 0
+        limit = 100
 
-    while True:
-        chunk = await client(GetParticipantsRequest(
-            source_group,
-            ChannelParticipantsSearch(''),
-            offset,
-            limit,
-            hash=0
-        ))
-        if not chunk.users:
-            break
-        participants.extend(chunk.users)
-        offset += len(chunk.users)
+        while True:
+            chunk = await client(GetParticipantsRequest(
+                source_group,
+                ChannelParticipantsSearch(''),
+                offset,
+                limit,
+                hash=0
+            ))
+            if not chunk.users:
+                break
+            participants.extend(chunk.users)
+            offset += len(chunk.users)
 
-    for user in participants:
-        if user.username is None:
-            continue
-        
-        try:
-            user_to_add = await client.get_input_entity(user.username)
-            await client(InviteToChannelRequest(target_channel, [user_to_add]))
-            print(f"Добавлен {user.username}")
-            await asyncio.sleep(20)  # Задержка во избежание превышения лимита
-        except Exception as e:
-            print(f"Пропущен {user.username}: {e}")
+        for user in participants:
+            if user.username is None:
+                continue
+            
+            try:
+                user_to_add = await client.get_input_entity(user.username)
+                await client(InviteToChannelRequest(target_channel, [user_to_add]))
+                print(f"Добавлен {user.username}")
+                await asyncio.sleep(20)  # Задержка во избежание превышения лимита
+            except Exception as e:
+                print(f"Пропущен {user.username}: {e}")
 
 def main():
     st.title("Пригласитель пользователей Telegram")
