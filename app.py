@@ -12,7 +12,7 @@ async def process_users(source_group, target_channel):
     async with TelegramClient(session_file, api_id, api_hash) as client:
         participants = []
         offset = 0
-        limit = 100
+        limit = 10000000
 
         while True:
             chunk = await client(GetParticipantsRequest(
@@ -35,7 +35,7 @@ async def process_users(source_group, target_channel):
                 user_to_add = await client.get_input_entity(user.username)
                 await client(InviteToChannelRequest(target_channel, [user_to_add]))
                 st.write(f"Добавлен {user.username}")  # Выводим информацию о добавлении
-                await asyncio.sleep(20)  # Задержка во избежание превышения лимита
+                await asyncio.sleep(5)  # Задержка во избежание превышения лимита
             except Exception as e:
                 st.write(f"Пропущен {user.username}: {e}")  # Выводим информацию об ошибках
 
