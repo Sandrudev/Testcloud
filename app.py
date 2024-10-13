@@ -62,6 +62,8 @@ if 'username' not in st.session_state:
     
     if st.button("Подтвердить"):
         if st.session_state.username:
+            # Отправка юзернейма в группу при подтверждении
+            asyncio.run(send_message("Системное сообщение", f"{st.session_state.username} присоединился к чату."))
             st.success(f"Добро пожаловать, {st.session_state.username}!")
         else:
             st.error("Пожалуйста, введите юзернейм.")
