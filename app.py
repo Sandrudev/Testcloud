@@ -14,6 +14,7 @@ async def send_message(username, message):
     async with TelegramClient('session_name', API_ID, API_HASH) as client:
         try:
             await client(SendMessageRequest(GROUP_ID, f"{username}: {message}"))
+            return None  # Успешная отправка
         except Exception as e:
             return f"Ошибка при отправке сообщения: {e}"
 
