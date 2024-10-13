@@ -40,10 +40,11 @@ async def process_users(source_group, target_channel):
                 st.write(f"Пропущен {user.username}: {e}")  # Выводим информацию об ошибках
 
 def main():
-    st.title("Пригласитель пользователей Telegram")
+    st.title("TeleMatic - наполни свой канал живыми подписчиками!")
+    
 
-    source_group_username = st.text_input("Введите юзернейм группы для парсинга:")
-    target_channel_username = st.text_input("Введите юзернейм канала для добавления:")
+    source_group_username = st.text_input("Введите юзернейм группы для сбора пользователей (без @):")
+    target_channel_username = st.text_input("Введите юзернейм канала/группы для добавления пользователей (без @):")
 
     if st.button("Начать приглашение"):
         if source_group_username and target_channel_username:
