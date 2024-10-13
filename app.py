@@ -1,110 +1,62 @@
-import os
-import random
-import string
-import sqlite3
-import asyncio
-from telethon import TelegramClient
 import streamlit as st
+from telethon import TelegramClient
+from telethon.tl.functions.messages import GetHistoryRequest
+from telethon.errors import FloodWaitError, ChannelPrivateError
+import asyncio
 
-# Telegram API configuration
-api_id = '22328650'
-api_hash = '20b45c386598fab8028b1d99b63aeeeb'
-GROUP_ID = 4584864883  # Your Telegram group ID (use integer format)
-DB_FILE = 'tokens.db'
+# Конфигурация Telegram API
+API_ID = 22328650  # Ваш API ID
+API_HASH = '20b45c386598fab8028b1d99b63aeeeb'  # Ваш API Hash
+GROUP_ID = -1002394787009  # ID группы (отрицательный)
 
-# Function to create or get the current event loop
-def get_or_create_eventloop():
-    try:
-        return asyncio.get_event_loop()
-    except RuntimeError as ex:
-        if "There is no current event loop in thread" in str(ex):
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop
-
-# Initialize the Telegram client with session file
-client = TelegramClient('session_name', api_id, api_hash)
-
-# Database setup
-conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-c = conn.cursor()
-c.execute('''
-    CREATE TABLE IF NOT EXISTS tokens (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        token TEXT UNIQUE
-    )
-''')
-conn.commit()
-
-def generate_token(length=12):
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-async def upload_file(file_path, user_token):
+# Функция для получения сообщений
+async def get_messages(api_id, api_hash, group_id):
+    client = TelegramClient('session_name', api_id, api_hash)
     await client.start()
-    await client.send_file(GROUP_ID, file_path, caption=user_token)
+    
+    messages = []
+    offset_id = 0
+    limit = 100
 
-async def get_files_by_token(token):
-    await client.start()
-    messages = await client.get_messages(GROUP_ID)
-    files = [msg for msg in messages if msg.caption and token in msg.caption]
-    return files
+    while True:
+        try:
+            history = await client(GetHistoryRequest(
+                peer=group_id,
+                offset_id=offset_id,
+                limit=limit,
+                offset_date=None,
+                add_offset=0,
+                max_id=0,
+                min_id=0,
+                hash=0
+            ))
 
-def check_token(token):
-    c.execute('SELECT token FROM tokens WHERE token = ?', (token,))
-    return c.fetchone() is not None
-
-def save_token(token):
-    c.execute('INSERT INTO tokens (token) VALUES (?)', (token,))
-    conn.commit()
-
-def main():
-    # Set up the event loop
-    get_or_create_eventloop()
-
-    st.title("Streamlit App with Telethon Integration")
-
-    if 'admin_token' in st.session_state:
-        st.subheader("Control Panel")
-        uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
-
-        if uploaded_file:
-            # Save the uploaded file temporarily
-            with open(uploaded_file.name, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+            if not history.messages:
+                break
             
-            # Upload the file using the authenticated user's account
-            asyncio.run(upload_file(uploaded_file.name, st.session_state['admin_token']))
-            st.success("Image uploaded successfully!")
+            messages.extend(history.messages)
+            offset_id = history.messages[-1].id
 
-            # Clean up the temporary file after uploading
-            os.remove(uploaded_file.name)
+        except FloodWaitError as e:
+            await asyncio.sleep(e.seconds)
+        except ChannelPrivateError:
+            return "Ошибка: У вас нет доступа к этой группе."
+        except Exception as e:
+            return f"Произошла ошибка: {e}"
 
-        # Display files published under the user's token
-        files = asyncio.run(get_files_by_token(st.session_state['admin_token']))
-        if files:
-            st.subheader("Published Files")
-            for file in files:
-                st.write(f"File: {file.document.file_name} - [Download](https://t.me/{GROUP_ID}/{file.id})")
+    return messages
 
-        if st.button("Logout"):
-            del st.session_state['admin_token']
-            st.experimental_rerun()
+# Интерфейс Streamlit
+st.title("Получение сообщений из Telegram")
 
-    else:
-        st.subheader("Login")
-        login_token = st.text_input("Enter your token")
-
-        if st.button("Login"):
-            if check_token(login_token):
-                st.session_state['admin_token'] = login_token
-                st.success("Login successful!")
-                st.experimental_rerun()
-
-        st.subheader("Register")
-        if st.button("Register"):
-            token = generate_token()
-            save_token(token)
-            st.success(f"Registration successful! Your token: {token}")
-
-if __name__ == "__main__":
-    main()
+if st.button("Получить сообщения"):
+    with st.spinner("Получение сообщений..."):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        messages = loop.run_until_complete(get_messages(API_ID, API_HASH, GROUP_ID))
+        
+        if isinstance(messages, str):
+            st.error(messages)
+        else:
+            for message in messages:
+                st.write(f"ID: {message.id}, Текст: {message.message if hasattr(message, 'message') else 'Нет текста.'}")
